@@ -31,7 +31,7 @@ str(df)
 ```
 
 Analisis exploratorio de datos y visualizaciones:
-```{r echo=FALSE, fig.height=20, fig.width=20, message=FALSE, warning=FALSE}
+```{r echo=TRUE, fig.height=20, fig.width=20, message=FALSE, warning=FALSE}
 g = ggpairs(df, progress = FALSE, bins=10)+theme_bw()
 g
 ```
@@ -61,7 +61,7 @@ Ejercicio 2
 ggplot(df, aes(x=Sunshine, y=Humidity3pm, color=RainTomorrow)) +
   geom_point() 
 ```
-Observamos cosas muy relevantes, los dias que va a llover mañana, tienen mayor humedad y menos sol, y los dias que no llovera mañana tienen todos mucho mas sol y la humedad en promedio es mas baja. A su vez hay varios dias, en su mayoria dias que llovera maniana, cuyo nivel de sol es 0, lo cual genera esa columna en el lado izquierdo. 
+Observamos cosas muy relevantes, los dias que va a llover mañana, tienen mayor humedad y menos sol, y los dias que no llovera mañana tienen todos mucho mas sol y la humedad en promedio es mas baja. A su vez hay varios dias, en su mayoria dias que llovera mañana, cuyo nivel de sol es 0, lo cual genera esa columna en el lado izquierdo. 
 Tambien vemos que si bien hay muchos dias que tienen mucho sol y poca humedad (los dias que no llovera mañana), no vemos casi ninguna observacion con poco sol y poca humedad, lo cual nos podria hablar de cierta relacion humedad - sol. 
 Nosotros pensamos que la humedad tiene mayor capacidad predictiva (si se tomara una sola y no en conjunto ambas), ya que la variable sunshine esta mucho mas dispersa para los dias que No llovio al dia siguiente, lo analizaremos en dos graficos de densidad.
 
@@ -86,13 +86,13 @@ Los boxplot no son buenos graficos. Pueden ocultar demasiada informacion cuando 
 ```{r}
 p2<-ggplot(df, aes(y=Humidity3pm, x=RainTomorrow, fill=RainTomorrow)) +
   geom_boxplot() + labs(x= "Nivel de humedad (Humidity3pm)",
-       subtitle="Boxplots humedad segun lluvia maniana")
+       subtitle="Boxplots humedad segun lluvia mañana")
 p2
 ```
 ```{r}
 p3<-ggplot(df, aes(y=Sunshine, x=RainTomorrow, fill=RainTomorrow)) +
   geom_boxplot() + labs(x= "Nivel de radiacion solar (Sunshine)",
-       subtitle="Boxplots radiacion solar segun lluvia maniana")
+       subtitle="Boxplots radiacion solar segun lluvia mañana")
 p3
 ```
 Como ven las medias difieren para ambos casos, pero esa informacion ya la habiamos visto (ademas de muchas otras cosas que aca no) en los density plots. No hay outliers / valores atipicos. 
