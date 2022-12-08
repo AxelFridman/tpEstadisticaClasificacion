@@ -16,6 +16,10 @@ library("GGally")
 ```{r}
 df = read.csv("lluviaAus.csv")
 ```
+Seteo de semilla random
+```{r}
+set.seed(329)
+```
 
 Limpieza y pre procesamiento de datos:
 ```{r}
@@ -28,6 +32,12 @@ df$X <- NULL # borro columna X ya que sospechamos que no representa nada sino qu
 Chequeamos que cada columna sea del tipo correcto
 ```{r}
 str(df) 
+```
+Divido dataset en train y test
+```{r}
+sample <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.8,0.2))
+dftrain  <- data.frame(df[sample, ])
+dftest   <- data.frame(df[!sample, ])
 ```
 
 Analisis exploratorio de datos y visualizaciones:
@@ -50,7 +60,7 @@ table(df$RainToday)
 table(df$RainTomorrow)
 ```
 
-Pero no son para nada independientes si llueve hoy y si llueve mañana. Ya que, si solo tuviera de informacion estas 2 columnas, dado que llovio hoy la nueva probabilidad de que llueva mañana es aproximadamente 78/(120+78) =aprox 40% mucho mas que el 20% naive. 
+Pero no son para nada independientes si llueve hoy y si llueve mañana. Ya que, si solo tuviera de informacion estas 2 columnas, dado que llovio hoy la nueva probabilidad de que llueva mañana es aproximadamente 65/(97+65) =aprox 40% mucho mas que el 20% naive. 
 ```{r}
 dfLluvias = df[c("RainToday", "RainTomorrow")]
 table(dfLluvias)
@@ -74,7 +84,7 @@ ps
 ```{r}
 ph<-ggplot(df, aes(x=Humidity3pm, fill=RainTomorrow)) +
   geom_density(alpha=0.4) + labs(x= "Nivel de humedad (Humidity3pm)",
-       subtitle="Grafico densidad humedad") + geom_vline(xintercept=62.5, size=0.5, color="red")
+       subtitle="Grafico densidad humedad") + geom_vline(xintercept=62, size=0.5, color="red")
 
 ph
 ```
@@ -100,14 +110,20 @@ Como ven las medias difieren para ambos casos, pero esa informacion ya la habiam
 Ejercicio 4
 Para hacer las ventanas moviles voy a primero transformar el dataset en 1 y 0 a las categoricas, para poder luego tomar promedios.
 ```{r}
-df$RainToday = ifelse(df$RainToday=="Yes",1,0)
-df$RainTomorrow = ifelse(df$RainTomorrow=="Yes",1,0)
+dftrain$RainToday = ifelse(dftrain$RainToday=="Yes",1,0)
+dftrain$RainTomorrow = ifelse(dftrain$RainTomorrow=="Yes",1,0)
+dftest$RainToday = ifelse(dftest$RainToday=="Yes",1,0)
+dftest$RainTomorrow = ifelse(dftest$RainTomorrow=="Yes",1,0)
 ```
 
 ```{r}
-promediosMoviles = function(datosX, datosY, alturaAestimar, h){
-  df = data.frame(datosX,datosY)
-  df2 = df[df$datosX > alturaAestimar-h & df$datosX < alturaAestimar+h ,]
+promediosMoviles = function(datosX, datosY, valor, h){
+  dfe = data.frame(datosX,datosY)
+  df2 = dfe[dfe$datosX >= valor-h & dfe$datosX <= valor+h ,]
+  while(nrow(df2)==0){
+    h = h*2 # Si no me agarra a nadie para promediar, aumentame la ventanita. No suele pasar, solo outliers o extremos
+    df2 = dfe[dfe$datosX >= valor-h & dfe$datosX <= valor+h ,]
+  }
   if(mean(df2$datosY)>1/2 ){
     return(1)
   }
@@ -115,67 +131,79 @@ promediosMoviles = function(datosX, datosY, alturaAestimar, h){
 }
 ```
 ```{r}
-promediosMoviles(df$Sunshine, df$RainTomorrow, 8, 0.1)
+promediosMoviles(dftrain$Sunshine, dftrain$RainTomorrow, 8, 0.1)
 ```
 ```{r}
-promediosMoviles(df$Humidity3pm, df$RainTomorrow, 85, 2)
+promediosMoviles(dftrain$Humidity3pm, dftrain$RainTomorrow, 85, 2)
 ```
 
-Ejercicio 5 y 6.
+Ejercicio 5 
 Nos creamos una funcion que nos genere todo el vector de predicciones Yhat.
-```{r}
-generarColumnaPrediccionesPromediosMoviles = function(datosX, datosY , h){
-  sexoPredicho = c()
-  for (i in (1: length(datosX))){
-    sexoPredicho[i] = promediosMoviles(datosX, datosY, (datosX[i]), h)
-  }
-  return(sexoPredicho)
-}
-```
-```{r}
-(generarColumnaPrediccionesPromediosMoviles(df$Sunshine, df$RainTomorrow, 1))
-```
+
 Vamos a evaluarlo con el metodo de validacion cruzada de LOO (dejar uno afuera para entrenar y evaluarlo con ese).
 
 ```{r}
 leaveOneOut = function(datosX, datosY, h){
   error = 0
   for (i in (1: length(datosX))){
-    predichoI = promediosMoviles(df$Sunshine[-i], df$RainTomorrow[-i], df$Sunshine[i], h)
-    error = error + abs(predichoI - df$RainTomorrow[i])
+    predichoI = promediosMoviles(datosX[-i], datosY[-i], datosX[i], h)
+    error = error + abs(predichoI - datosY[i])
   }
   return(error)
 }
 ```
 
 ```{r}
-hPosibleHumedad = seq(0.2, 10, 0.8 )
-hPosibleSunshine = seq(0.5, 4, 0.1 )
+hPosibleHumedad = seq(1, 30, 0.5 )
+hPosibleSunshine = seq(0.5, 10, 0.1 )
 ```
 
 
 ```{r}
 erroreshHumedad = c()
+hum = dftrain$Humidity3pm
+lluv = dftrain$RainTomorrow
 for (i in (1: length(hPosibleHumedad))){
-    erroreshHumedad[i] = leaveOneOut(df$Humidity3pm, df$RainTomorrow, hPosibleHumedad[i])
+    erroreshHumedad[i] = leaveOneOut(hum, lluv, hPosibleHumedad[i])
 }
 ```
 
 ```{r}
 erroreshSunshine = c()
+hum = dftrain$Humidity3pm
+lluv = dftrain$RainTomorrow
+sun = dftrain$Sunshine
 for (i in (1: length(hPosibleSunshine))){
-    erroreshSunshine[i] = leaveOneOut(df$Sunshine, df$RainTomorrow, hPosibleSunshine[i])
+    erroreshSunshine[i] = leaveOneOut(sun, lluv, hPosibleSunshine[i])
 }
 ```
 ```{r}
 plot(hPosibleHumedad , erroreshHumedad, type = "l")
 ```
-De aca vemos que la ventana optima para humedad es de exactamente 1.
+
+De aca vemos que la ventana optima para humedad es 1.
 
 ```{r}
 plot(hPosibleSunshine , erroreshSunshine, type = "l")
 ```
 Mientras que la ventana optima para la radiacion solar es de 0.8
 
-Asi el error de clasificacion empirico despues de encontrar el h optimo para sunshine es de 179.
-Es decir le erra el 17.9% de las veces
+Ejercicio 6
+ahora nos fijamos el error con el dataset de test que separamos al principio para esta ventana
+```{r}
+generarColumnaPrediccionesPromediosMoviles = function(datosX, datosY , h){
+  predicho = c()
+  for (i in (1: length(datosX))){
+    predicho[i] = promediosMoviles(datosX, datosY, (datosX[i]), h)
+  }
+  return(predicho)
+}
+```
+```{r}
+yhat = (generarColumnaPrediccionesPromediosMoviles(dftest$Sunshine, dftest$RainTomorrow, 0.8))
+```
+```{r}
+res = sum(abs(yhat-dftest$RainTomorrow))/length(yhat)
+print(paste("El porcentaje de error es ", res*100, "%") )
+```
+
